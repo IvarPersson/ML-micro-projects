@@ -84,7 +84,9 @@ def network_step(data, optimizer, net, loss_function, train=True):
     if train:
         loss.backward()  # Compute gradients
         optimizer.step()  # Update the weights of the network
-    return loss
+    _, max_indices = np.max(np.int32(outputs), 1)
+    accuracy = (max_indices == labels).sum(dtype=np.int32) / max_indices.size(0)
+    return loss, accuracy
 
 
 def calculate_test_accuracy(net):
@@ -112,8 +114,8 @@ def calculate_test_accuracy(net):
 
         outputs = net(inputs)
 
-        _, max_indices = torch.max(outputs, 1)
-        correct += (max_indices == labels).sum(dtype=np.float32)
+        _, max_indices = np.max(np.int32(outputs), 1)
+        correct += (max_indices == labels).sum(dtype=np.int32)
         total += max_indices.size(0)
 
     print(f"Test accuracy: {correct/total}")
@@ -147,14 +149,18 @@ def main():
     for epoch in range(EPOCHS):
         loss_sum = 0.0
         loss = 0.0
+        accuracy = 0.0
 
         net.train()
         for i, data in enumerate(train_loader):
-            network_loss = network_step(data, optimizer, net, loss_function)
+            network_loss, nbr_correct = network_step(
+                data, optimizer, net, loss_function
+            )
 
-            # Collect losses
+            # Collect losses and accuracy
             loss_sum += network_loss
             loss += network_loss
+            accuracy += nbr_correct
 
             if i % 20 == 19:
                 print(f"Epoch: {epoch+1}, Iteration: {i+1}, Loss: {loss_sum / 20}")
@@ -163,13 +169,17 @@ def main():
 
         # Validation loss
         loss = 0.0
+        accuracy = 0.0
         net.eval()
         for data in val_loader:
-            network_loss = network_step(data, optimizer, net, loss_function)
+            network_loss, nbr_correct = network_step(
+                data, optimizer, net, loss_function
+            )
             loss += network_loss
+            accuracy += nbr_correct
         print(f"Validation loss: {loss / len(val_loader)}")
+        print(f"Validation acc: {accuracy / len(val_loader)}")
         losses[1, epoch] = loss / len(val_loader)
-    calculate_test_accuracy(net)
     # Plot results
 
 
